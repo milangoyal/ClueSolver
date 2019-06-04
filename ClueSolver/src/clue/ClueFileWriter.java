@@ -19,7 +19,9 @@ public class ClueFileWriter {
 		stringBuilder += oneEachLocation();
 		stringBuilder += caseFiles();
 		stringBuilder += accusationConstraints();
-		String max = String.format("%.5g%n", globalMax);
+		//String max = String.format("%.5g%n", globalMax);
+		//Rounding up global max to an int because Top K Solutions program requires an int
+		String max = Integer.toString((int) Math.ceil(globalMax));
 		max = max.replaceAll("\n", "");
 		stringBuilder = stringBuilder.replaceAll("-", max);
 		stringBuilder = prepend() + stringBuilder;
@@ -29,7 +31,9 @@ public class ClueFileWriter {
 	public String prepend() {
 		int numberLocations = data.getNumberPlayers() + 3;
 		int numberCards = data.getNumberSuspects() + data.getNumberPlaces() + data.getNumberWeapons();
-		String stringBuilder = "ClueGame " + (numberLocations*numberCards) + " 2 " + constraintCounter + " " + String.format("%.5g%n", globalMax);
+		//String stringBuilder = "ClueGame " + (numberLocations*numberCards) + " 2 " + constraintCounter + " " + String.format("%.5g%n", globalMax);
+		//Had to make globalMax an int for top k solutions
+		String stringBuilder = "ClueGame " + (numberLocations*numberCards) + " 2 " + constraintCounter + " " + (int) Math.ceil(globalMax) + "\n";
 		stringBuilder += "2";
 		for (int i = 0; i < ((numberLocations*numberCards)-1); i++) {
 			stringBuilder += " 2";
@@ -252,19 +256,19 @@ public class ClueFileWriter {
 	}
 	
 	public static void main(String[] args) {
-		ClueSolver test = new ClueSolver(2, 2, 3, 4);
-		test.startGame();
-		test.accuse(0, 3, 7);
-		//filler accuse to return to our turn
-		test.accuse(1, 2, 5);
-		test.accuse(1, 2, 5);
-		for (int i = 0; i < test.solution.size(); i++) {
-			System.out.println(test.solution.get(i));
-		}
-		test.printGameState();
-		ClueFileWriter test2 = new ClueFileWriter(test);
-		System.out.println(test2.getInputString());
-		System.out.println(test2.globalMax);
+//		ClueSolver test = new ClueSolver(2, 2, 3, 4);
+//		test.startGame();
+//		test.accuse(0, 3, 7);
+//		//filler accuse to return to our turn
+//		test.accuse(1, 2, 5);
+//		test.accuse(1, 2, 5);
+//		for (int i = 0; i < test.solution.size(); i++) {
+//			System.out.println(test.solution.get(i));
+//		}
+//		test.printGameState();
+//		ClueFileWriter test2 = new ClueFileWriter(test);
+//		System.out.println(test2.getInputString());
+//		System.out.println(test2.globalMax);
 	}
 	
 }

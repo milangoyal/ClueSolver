@@ -25,7 +25,7 @@ public class ClueSolver {
 	 * implies they never lie (cheat) when responding to accusations. Value cannot be 0, as a player cannot
 	 * always lie without getting caught.
 	 */
-	public List<Double> trust;
+	private List<Double> trust;
 	
 	public List<Double> getTrust() {
 		return trust;
@@ -84,9 +84,16 @@ public class ClueSolver {
 	public void setAccusationConstraints(List<List<Integer>> accusationConstraints) {
 		this.accusationConstraints = accusationConstraints;
 	}
+	
+	private String gameMessages;
+	
+	public String getGameMessages() {
+		return gameMessages;
+	}
 
 	/**
-	 * Given card number returns whether it is {Suspect = 0, Place = 1, or Weapon = 2} card
+	 * Given card number returns whether it is {Suspect = 0, Place = 1, or Weapon = 2} card.
+	 * Returns -1 if not within any of the ranges.
 	 * @param card
 	 * @return
 	 */
@@ -97,7 +104,12 @@ public class ClueSolver {
 		else if (card < numberSuspects + numberPlaces) {
 			return 1;
 		}
-		else return 2;
+		else if (card < numberSuspects + numberPlaces + numberWeapons) {
+			return 2;
+		}
+		else {
+			return -1;
+		}
 	}
 	
 	/**
@@ -143,7 +155,7 @@ public class ClueSolver {
 		return probability;
 	}
 	
-	public String accuse(Integer suspect, Integer place, Integer weapon) {
+	private String accuse(Integer suspect, Integer place, Integer weapon) {
 //		if (annotate) {
 //			if (currentTurn == 0) {
 //				System.out.println("You accuse suspect: " + suspect + " of using weapon: " +
@@ -319,7 +331,6 @@ public class ClueSolver {
 				accusationConstraints.add(constraint);
 			}
 			String message = "";
-			//TODO: You reveal you are holding to....
 			if (playerAccused == 0) {
 				message += "You reveal you are holding one of the three cards to player " + (playerAccuser+1) + "\n";
 			}
@@ -506,6 +517,35 @@ public class ClueSolver {
 			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
 			message += accuse(randomSuspect, randomPlace, randomWeapon);
 		}
+		gameMessages += message;
+		return message;
+	}
+	
+	public String simulateOpenentTurns() {
+		String message = "";
+		Random rand = new Random();
+		while(currentTurn != 0) {
+			int randomSuspect = rand.nextInt(numberSuspects);
+			int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
+			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
+			message += accuse(randomSuspect, randomPlace, randomWeapon);
+		}
+		gameMessages += message;
+		return message;
+	}
+	
+	public String enterPlayerTurn(int suspect, int place, int weapon) {
+		if (currentTurn != 0) {
+			return "Not Player 0's (your) turn!";
+		}
+		
+		if (getCardType(suspect) != 1 || getCardType(place) != 2 || getCardType(weapon) != 3) {
+			return "Please enter a proper suspect, place, and weapon card";
+		}
+		
+		String message = "";
+		message += accuse(suspect, place, weapon);
+		gameMessages += message;
 		return message;
 	}
 	
