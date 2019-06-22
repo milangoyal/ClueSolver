@@ -13,6 +13,10 @@ public class ClueSolver {
 	private int numberSuspects;
 	private int numberPlaces;
 	private int numberWeapons;
+	
+	/**
+	 * A default game uses the original 21 Clue cards
+	 */
 	private boolean defaultGame;
 	
 	public static final String[] cardNames = {"Miss Scarlet", "Professor Plum", "Mrs. Peacock", "Mr. Green",
@@ -80,16 +84,18 @@ public class ClueSolver {
 	public List<List<Integer>> getAccusationConstraints() {
 		return accusationConstraints;
 	}
-
-	public void setAccusationConstraints(List<List<Integer>> accusationConstraints) {
-		this.accusationConstraints = accusationConstraints;
-	}
 	
 	private String gameMessages;
 	
 	public String getGameMessages() {
 		return gameMessages;
 	}
+	
+	/*
+	 * ---------------
+	 * Public API
+	 * ---------------
+	 */
 
 	/**
 	 * Given card number returns whether it is {Suspect = 0, Place = 1, or Weapon = 2} card.
@@ -116,7 +122,7 @@ public class ClueSolver {
 	 * @param card integer between 0 and (numberSuspects + numberPlaces + numberWeapons-1)
 	 * @param cardType integer between 0-2 {Suspects, Places, Weapons}
 	 * @param location integer between 0-(numberPlayers+2) {Player1, ..., PlayerN, Suspect Case File, Places Case File, Weapons Case File)
-	 * @return
+	 * @return numerical probability given card is in given location depending on game state information from Player 0's perspective
 	 */
 	public double getProbability(int card, int cardType, int location) {
 		//Card cannot be in this location
@@ -155,200 +161,18 @@ public class ClueSolver {
 		return probability;
 	}
 	
-	private String accuse(Integer suspect, Integer place, Integer weapon) {
-//		if (annotate) {
-//			if (currentTurn == 0) {
-//				System.out.println("You accuse suspect: " + suspect + " of using weapon: " +
-//				weapon + " at place: " + place + " to commit the crime");
-//			}
-//			else {
-//				System.out.println("Player " + currentTurn + " accuses suspect: " + suspect + " of using weapon: " +
-//				weapon + " at place: " + place + " to commit the crime");
-//			}
-//		}
-		
-		String message = "";
-		if (defaultGame) {
-			if (currentTurn == 0) {
-				message += "You accuse suspect: " + cardNames[suspect] + " of using weapon: " +
-					cardNames[weapon] + " at place: " + cardNames[place] + " to commit the crime\n";
-			}
-			else {
-				message += "Player " + (currentTurn+1) + " accuses suspect: " + cardNames[suspect] + " of using weapon: " +
-					cardNames[weapon] + " at place: " + cardNames[place] + " to commit the crime\n";
-			}
-		}
-		else {
-			if (currentTurn == 0) {
-				message += "You accuse suspect: " + suspect + " of using weapon: " +
-					weapon + " at place: " + place + " to commit the crime\n";
-			}
-			else {
-				message += "Player " + (currentTurn+1) + " accuses suspect: " + suspect + " of using weapon: " +
-					weapon + " at place: " + place + " to commit the crime\n";
-			}
-		}
-		
-		int accusedPlayer = currentTurn + 1;
-		if (accusedPlayer == numberPlayers) {
-			accusedPlayer = 0;
-		}
-		//Pass accusation around in a circle until someone admits to a card or accusation
-		//makes the round all the way back to whoever started it
-		while (accusedPlayer != currentTurn) {
-			int accusedResponse = accuseResponse(accusedPlayer, suspect, place, weapon);
-			//Accused does not hold any of the three cards
-			if (accusedResponse == -1) {
-				message += passOnAccuse(accusedPlayer, suspect, place, weapon);
-
-							}
-			//Accused holds one of three cards
-			else {
-				message += admitOnAccuse(currentTurn, accusedPlayer, suspect, place, weapon);
-				break;
-			}
-			//Pass on accusation to next player (if no one has admitted yet)
-			accusedPlayer++;
-			if (accusedPlayer == numberPlayers) {
-				accusedPlayer = 0;
-			}
-		}
-		//End of an accusation is end of that player's turn
-		currentTurn++;
-		if (currentTurn == numberPlayers) {
-			currentTurn = 0;
-		}
-		return message;
-	}
-	
-	private String passOnAccuse(int player, Integer suspect, Integer place, Integer weapon) {
-		HashSet<Integer> playerRestrictions = restrictions.get(player);
-		if (!playerRestrictions.contains(suspect)) {
-			playerRestrictions.add(suspect);
-		}
-		if (!playerRestrictions.contains(place)) {
-			playerRestrictions.add(place);
-		}
-		if (!playerRestrictions.contains(weapon)) {
-			playerRestrictions.add(weapon);
-		}
-		
-		String message = "";
-		if (player == 0) {
-			message += "You deny holding any of the three cards\n";
-		}
-		else {
-			message += "Player " + (player+1) + " denies holding any of the three cards\n";
-		}
-		return message;
-//		if (annotate) {
-//			if (player == 0) {
-//				System.out.println("You deny holding any of the three cards");
-//			}
-//			else {
-//				System.out.println("Player " + player + " denies holding any of the three cards");
-//			}
-//		}
-	}
-	
-	private boolean hasCard(int player, Integer card) {
-		return solution.get(player).contains(card);
-	}
-	
 	/**
-	 * If player holds one of the three cards, returns the card they hold. If the player
-	 * has previously revealed they hold one of the cards, will return the same card to simulate
-	 * strategy.
-	 * <p>
-	 * Returns -1 otherwise.
-	 * @param player
-	 * @param suspect
-	 * @param place
-	 * @param weapon
-	 * @return
+	 * Creates a game using the original 21 cards from the board game Clue
+	 * @param numberPlayers
 	 */
-	private Integer accuseResponse(int player, Integer suspect, Integer place, Integer weapon) {
-		if (hands.get(player).contains(suspect)) {
-			return suspect;
-		}
-		else if (hands.get(player).contains(place)) {
-			return place;
-		}
-		else if (hands.get(player).contains(weapon)) {
-			return weapon;
-		}
-		else if (hasCard(player, suspect)) {
-			return suspect;
-		}
-		else if (hasCard(player, place)) {
-			return place;
-		}
-		else if (hasCard(player, weapon)) {
-			return weapon;
-		}
-		else return -1;
-	}
-	
-	private String admitOnAccuse(int playerAccuser, int playerAccused, Integer suspect, Integer place, Integer weapon) {
-		if (currentTurn == 0) {
-			Integer admittedCard = accuseResponse(playerAccused, suspect, place, weapon);
-			if (!hands.get(playerAccused).contains(admittedCard)) {
-				hands.get(playerAccused).add(admittedCard);
-				//TODO:verify
-				unknowns.get(getCardType(admittedCard)).remove(admittedCard);
-				//TODO: verify this works
-				Integer remainingFree = freeSlots.get(playerAccused) - 1;
-				freeSlots.remove(playerAccused);
-				freeSlots.add(playerAccused, remainingFree);
-				for (int i = 0; i < restrictions.size(); i++) {
-					if (i != playerAccused) {
-						if (!restrictions.get(i).contains(admittedCard)) {
-							restrictions.get(i).add(admittedCard);
-						}
-					}
-				}
-			}
-			
-			String message = "";
-			if (defaultGame) {
-				message ="Player " + (playerAccused+1) + " reveals to you they are holding card " + cardNames[admittedCard] + "\n";
-			}
-			else {
-				message ="Player " + (playerAccused+1) + " reveals to you they are holding card " + admittedCard + "\n";
-			}
-			return message;
-//			if (annotate) {
-//				System.out.println("Player " + playerAccused + " reveals to you they are holding card " + admittedCard);
-//			}
-		}
-		else {
-			List<Integer> constraint = new ArrayList<Integer>();
-			constraint.add(playerAccused);
-			constraint.add(suspect);
-			constraint.add(place);
-			constraint.add(weapon);
-			if (!this.accusationConstraints.contains(constraint)) {
-				accusationConstraints.add(constraint);
-			}
-			String message = "";
-			if (playerAccused == 0) {
-				message += "You reveal you are holding one of the three cards to player " + (playerAccuser+1) + "\n";
-			}
-			else {
-				message += "Player " + (playerAccused+1) + " reveals they are holding one of the three cards to player " + (playerAccuser+1) + "\n";
-			}
-			return message;
-//			if (annotate) {
-//				System.out.println("Player " + playerAccused + " reveals they are holding one of the three cards to player " + playerAccuser);
-//			}
-		}
-	}
-	
 	public ClueSolver(int numberPlayers) {
 		this(numberPlayers, 6, 9, 6);
 		this.defaultGame = true;
 	}
 	
+	/**
+	 * Creates a clue game with a custom number of cards
+	 */
 	public ClueSolver(int numberPlayers, int numberSuspects, int numberPlaces, int numberWeapons) {
 		this.numberPlayers = numberPlayers;
 		this.numberSuspects = numberSuspects;
@@ -363,6 +187,7 @@ public class ClueSolver {
 		this.restrictions = new ArrayList<HashSet<Integer>>();
 		this.accusationConstraints = new ArrayList<List<Integer>>();
 		this.trust = new ArrayList<Double>();
+		this.gameMessages = "";
 		
 		//One for each category {Suspects, Places, Weapons}
 		for (int i = 0; i < 3; i++) {
@@ -386,8 +211,6 @@ public class ClueSolver {
 				}
 			}
 		}
-		
-		
 		
 		//Total number of cards players can hold (3 belong in the case file)
 		int numberTotalPlayerCards = numberSuspects + numberPlaces + numberWeapons - 3;
@@ -458,6 +281,9 @@ public class ClueSolver {
 		
 	}
 	
+	/**
+	 * Starts the game by revealing Player 0's hand and giving them the first turn
+	 */
 	public void startGame() {
 		for (int i = 0; i < solution.get(0).size(); i++) {
 			Iterator<Integer> it = solution.get(0).iterator();
@@ -515,7 +341,7 @@ public class ClueSolver {
 			int randomSuspect = rand.nextInt(numberSuspects);
 			int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
 			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
-			message += accuse(randomSuspect, randomPlace, randomWeapon);
+			message += suggest(randomSuspect, randomPlace, randomWeapon);
 		}
 		gameMessages += message;
 		return message;
@@ -528,7 +354,7 @@ public class ClueSolver {
 			int randomSuspect = rand.nextInt(numberSuspects);
 			int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
 			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
-			message += accuse(randomSuspect, randomPlace, randomWeapon);
+			message += suggest(randomSuspect, randomPlace, randomWeapon);
 		}
 		gameMessages += message;
 		return message;
@@ -539,15 +365,218 @@ public class ClueSolver {
 			return "Not Player 0's (your) turn!";
 		}
 		
-		if (getCardType(suspect) != 1 || getCardType(place) != 2 || getCardType(weapon) != 3) {
+		if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
 			return "Please enter a proper suspect, place, and weapon card";
 		}
 		
 		String message = "";
-		message += accuse(suspect, place, weapon);
+		message += suggest(suspect, place, weapon);
 		gameMessages += message;
 		return message;
 	}
+	
+	public String accuse(int suspect, int place, int weapon) {
+		if (currentTurn != 0) {
+			return "Not Player 0's (your) turn!";
+		}
+		
+		if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
+			return "Please enter a proper suspect, place, and weapon card";
+		}
+		
+		HashSet<Integer> weapon_soln = solution.get(solution.size()-1);
+		HashSet<Integer> place_soln = solution.get(solution.size()-2);
+		HashSet<Integer> suspect_soln = solution.get(solution.size()-3);
+		
+		if (suspect_soln.contains(suspect) && place_soln.contains(place) && weapon_soln.contains(weapon)) {
+			return "You correctly guessed the case file and WIN THE GAME!";
+		}
+		else {
+			return "You guessed the case file wrong and LOSE THE GAME";
+		}
+	}
+	
+	/*
+	 * ----------------------
+	 * Private Helper Functions
+	 * ----------------------
+	 */
+	
+	private String suggest(Integer suspect, Integer place, Integer weapon) {
+		String message = "";
+		if (defaultGame) {
+			if (currentTurn == 0) {
+				message += "You accuse suspect: " + cardNames[suspect] + " of using weapon: " +
+					cardNames[weapon] + " at place: " + cardNames[place] + " to commit the crime\n";
+			}
+			else {
+				message += "Player " + (currentTurn+1) + " accuses suspect: " + cardNames[suspect] + " of using weapon: " +
+					cardNames[weapon] + " at place: " + cardNames[place] + " to commit the crime\n";
+			}
+		}
+		else {
+			if (currentTurn == 0) {
+				message += "You accuse suspect: " + suspect + " of using weapon: " +
+					weapon + " at place: " + place + " to commit the crime\n";
+			}
+			else {
+				message += "Player " + (currentTurn+1) + " accuses suspect: " + suspect + " of using weapon: " +
+					weapon + " at place: " + place + " to commit the crime\n";
+			}
+		}
+		
+		int accusedPlayer = currentTurn + 1;
+		if (accusedPlayer == numberPlayers) {
+			accusedPlayer = 0;
+		}
+		//Pass suggestion around in a circle until someone admits to a card or suggestion
+		//makes the round all the way back to whoever started it
+		while (accusedPlayer != currentTurn) {
+			int accusedResponse = suggestResponse(accusedPlayer, suspect, place, weapon);
+			//Accused does not hold any of the three cards
+			if (accusedResponse == -1) {
+				message += passOnSuggest(accusedPlayer, suspect, place, weapon);
+
+							}
+			//Accused holds one of three cards
+			else {
+				message += admitOnSuggest(currentTurn, accusedPlayer, suspect, place, weapon);
+				break;
+			}
+			//Pass on suggestion to next player (if no one has admitted yet)
+			accusedPlayer++;
+			if (accusedPlayer == numberPlayers) {
+				accusedPlayer = 0;
+			}
+		}
+		//End of a suggestion is end of that player's turn
+		currentTurn++;
+		if (currentTurn == numberPlayers) {
+			currentTurn = 0;
+		}
+		return message;
+	}
+	
+	private String passOnSuggest(int player, Integer suspect, Integer place, Integer weapon) {
+		HashSet<Integer> playerRestrictions = restrictions.get(player);
+		if (!playerRestrictions.contains(suspect)) {
+			playerRestrictions.add(suspect);
+		}
+		if (!playerRestrictions.contains(place)) {
+			playerRestrictions.add(place);
+		}
+		if (!playerRestrictions.contains(weapon)) {
+			playerRestrictions.add(weapon);
+		}
+		
+		String message = "";
+		if (player == 0) {
+			message += "You deny holding any of the three cards\n";
+		}
+		else {
+			message += "Player " + (player+1) + " denies holding any of the three cards\n";
+		}
+		return message;
+	}
+	
+	private boolean hasCard(int player, Integer card) {
+		return solution.get(player).contains(card);
+	}
+	
+	/**
+	 * If player holds one of the three cards, returns the card they hold. If the player
+	 * has previously revealed they hold one of the cards, will return the same card to simulate
+	 * strategy.
+	 * <p>
+	 * Returns -1 otherwise.
+	 * @param player
+	 * @param suspect
+	 * @param place
+	 * @param weapon
+	 * @return
+	 */
+	private Integer suggestResponse(int player, Integer suspect, Integer place, Integer weapon) {
+		if (hands.get(player).contains(suspect)) {
+			return suspect;
+		}
+		else if (hands.get(player).contains(place)) {
+			return place;
+		}
+		else if (hands.get(player).contains(weapon)) {
+			return weapon;
+		}
+		else if (hasCard(player, suspect)) {
+			return suspect;
+		}
+		else if (hasCard(player, place)) {
+			return place;
+		}
+		else if (hasCard(player, weapon)) {
+			return weapon;
+		}
+		else return -1;
+	}
+	
+	private String admitOnSuggest(int playerAccuser, int playerAccused, Integer suspect, Integer place, Integer weapon) {
+		if (currentTurn == 0) {
+			Integer admittedCard = suggestResponse(playerAccused, suspect, place, weapon);
+			if (!hands.get(playerAccused).contains(admittedCard)) {
+				hands.get(playerAccused).add(admittedCard);
+				//TODO:verify
+				unknowns.get(getCardType(admittedCard)).remove(admittedCard);
+				//TODO: verify this works
+				Integer remainingFree = freeSlots.get(playerAccused) - 1;
+				freeSlots.remove(playerAccused);
+				freeSlots.add(playerAccused, remainingFree);
+				for (int i = 0; i < restrictions.size(); i++) {
+					if (i != playerAccused) {
+						if (!restrictions.get(i).contains(admittedCard)) {
+							restrictions.get(i).add(admittedCard);
+						}
+					}
+				}
+			}
+			
+			String message = "";
+			if (defaultGame) {
+				message ="Player " + (playerAccused+1) + " reveals to you they are holding card " + cardNames[admittedCard] + "\n";
+			}
+			else {
+				message ="Player " + (playerAccused+1) + " reveals to you they are holding card " + admittedCard + "\n";
+			}
+			return message;
+//			if (annotate) {
+//				System.out.println("Player " + playerAccused + " reveals to you they are holding card " + admittedCard);
+//			}
+		}
+		else {
+			List<Integer> constraint = new ArrayList<Integer>();
+			constraint.add(playerAccused);
+			constraint.add(suspect);
+			constraint.add(place);
+			constraint.add(weapon);
+			if (!this.accusationConstraints.contains(constraint)) {
+				accusationConstraints.add(constraint);
+			}
+			String message = "";
+			if (playerAccused == 0) {
+				message += "You reveal you are holding one of the three cards to player " + (playerAccuser+1) + "\n";
+			}
+			else {
+				message += "Player " + (playerAccused+1) + " reveals they are holding one of the three cards to player " + (playerAccuser+1) + "\n";
+			}
+			return message;
+//			if (annotate) {
+//				System.out.println("Player " + playerAccused + " reveals they are holding one of the three cards to player " + playerAccuser);
+//			}
+		}
+	}
+	
+
+	
+
+	
+
 	
 	public void printMenu() {
 		List<String> options = new ArrayList<String>();
@@ -564,7 +593,6 @@ public class ClueSolver {
 		}
 	}
 	
-	//TODO: Add restrictions (cafe file spots cannot contain any other type of card)
 	public static void main(String[] args) {
 		System.out.println("Welcome to the WCSP Clue Game Simulator!\n ");
 		UserInputManager input = new UserInputManager();
@@ -642,24 +670,9 @@ public class ClueSolver {
 		return numberPlayers;
 	}
 
-
-
-	public void setNumberPlayers(int numberPlayers) {
-		this.numberPlayers = numberPlayers;
-	}
-
-
-
 	public int getNumberSuspects() {
 		return numberSuspects;
 	}
-
-
-
-	public void setNumberSuspects(int numberSuspects) {
-		this.numberSuspects = numberSuspects;
-	}
-
 
 
 	public int getNumberPlaces() {
@@ -667,20 +680,8 @@ public class ClueSolver {
 	}
 
 
-
-	public void setNumberPlaces(int numberPlaces) {
-		this.numberPlaces = numberPlaces;
-	}
-
-
-
 	public int getNumberWeapons() {
 		return numberWeapons;
-	}
-
-
-	public void setNumberWeapons(int numberWeapons) {
-		this.numberWeapons = numberWeapons;
 	}
 	
 	public List<HashSet<Integer>> getHands() {
