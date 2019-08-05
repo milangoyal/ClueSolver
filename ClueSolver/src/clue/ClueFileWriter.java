@@ -1,6 +1,12 @@
 package clue;
 import java.util.List;
 
+/**
+ * Generates a WCSP Lyft input data from {@link ClueSolver} game data. Used to solve top k
+ * possible solutions to Clue game state (location of all cards).
+ * @author Milan
+ *
+ */
 public class ClueFileWriter {
 	
 	private ClueSolver data;
@@ -13,13 +19,16 @@ public class ClueFileWriter {
 		this.globalMax = 0;
 	}
 	
+	/**
+	 * Returns the full header and body of the data file containing all variables and constraints
+	 * @return
+	 */
 	public String getInputString() {
 		String stringBuilder = "";
 		stringBuilder += initializeVariables();
 		stringBuilder += oneEachLocation();
 		stringBuilder += caseFiles();
-		stringBuilder += accusationConstraints();
-		//String max = String.format("%.5g%n", globalMax);
+		stringBuilder += suggestionConstraints();
 		//Rounding up global max to an int because Top K Solutions program requires an int
 		String max = Integer.toString((int) Math.ceil(globalMax));
 		max = max.replaceAll("\n", "");
@@ -28,11 +37,19 @@ public class ClueFileWriter {
 		return stringBuilder;
 	}
 	
-	public String prepend() {
+	/*
+	 * ------------------------Private helper functions-------------------------------------------------
+	 */
+	
+	/**
+	 * Returns the header to the input data file. Should be added last, as the header contains the global maximum
+	 * which can only be calculated after all constraints have been added.
+	 * @return
+	 */
+	private String prepend() {
 		int numberLocations = data.getNumberPlayers() + 3;
 		int numberCards = data.getNumberSuspects() + data.getNumberPlaces() + data.getNumberWeapons();
-		//String stringBuilder = "ClueGame " + (numberLocations*numberCards) + " 2 " + constraintCounter + " " + String.format("%.5g%n", globalMax);
-		//Had to make globalMax an int for top k solutions
+		//Rounding up global max to an int because Top K Solutions program requires an int
 		String stringBuilder = "ClueGame " + (numberLocations*numberCards) + " 2 " + constraintCounter + " " + (int) Math.ceil(globalMax) + "\n";
 		stringBuilder += "2";
 		for (int i = 0; i < ((numberLocations*numberCards)-1); i++) {
@@ -42,7 +59,12 @@ public class ClueFileWriter {
 		return stringBuilder;
 	}
 	
-	public String initializeVariables() {
+	
+	/**
+	 * Initializes all variables where each variable represents one possible location for each of the cards.
+	 * @return
+	 */
+	private String initializeVariables() {
 		String builder = "";
 		
 		int numberPlayers = data.getNumberPlayers();
@@ -61,7 +83,7 @@ public class ClueFileWriter {
 				String wTrue = "";
 				String wFalse = "";
 				//"-" represent probability of 0 but needs to be replaced by global maximum after
-				//all constraints have been entered
+				//all constraints have been entered. 
 				if (weightTrue == -1) {
 					wTrue = "-\n";
 				}
@@ -88,7 +110,11 @@ public class ClueFileWriter {
 		
 	}
 	
-	public String oneEachLocation() {
+	/**
+	 * Adds constraint that each card must be in one and only one location. However, this location can be anywhere.
+	 * @return
+	 */
+	private String oneEachLocation() {
 		int numberPlayers = data.getNumberPlayers();
 		int numberSuspects = data.getNumberSuspects();
 		int numberPlaces = data.getNumberPlaces();
@@ -130,7 +156,12 @@ public class ClueFileWriter {
 		return stringBuilder;
 	}
 	
-	public String caseFiles() {
+	/**
+	 * Adds constraints related to the case files. Each case file slot can only hold a specific type of card (Suspect,
+	 * Weapon, Place) and each slot must hold one and only card.
+	 * @return
+	 */
+	private String caseFiles() {
 		int numberPlayers = data.getNumberPlayers();
 		int numberSuspects = data.getNumberSuspects();
 		int numberPlaces = data.getNumberPlaces();
@@ -165,52 +196,32 @@ public class ClueFileWriter {
 		return stringBuilder;
 	}
 	
-	public String accusationConstraints() {
-		List<List<Integer>> accusations = data.getAccusationConstraints();
+	/**
+	 * Converts suggestion information into constraints, i.e. whenever a player passes
+	 * on a suggestion they must not hold any of three cards from the suggestion
+	 * @return
+	 */
+	private String suggestionConstraints() {
+		List<List<Integer>> suggestions = data.getSuggestionConstraints();
 		int numberLocations = data.getNumberPlayers() + 3;
 
 		String stringBuilder = "";
-		for (int i = 0; i < accusations.size(); i++) {
-			int player = accusations.get(i).get(0);
-			int suspect = accusations.get(i).get(1);
-			int place = accusations.get(i).get(2);
-			int weapon = accusations.get(i).get(3);
-//			stringBuilder += "3 " + (suspect*numberLocations+player) + " "
-//					+ (place*numberLocations+player) + " " + (weapon*numberLocations+player)
-//					+ " " + "0 1\n";
-//			stringBuilder += "0 0 0 -\n";
-			//NEW
-			double playerTrust = data.getTrust().get(player);
-
-			double defaultWeight = this.probToWeight(playerTrust);
-			double truthWeight = this.probToWeight((1-playerTrust)/7);
-			String defaultW = String.format("%.5g%n", defaultWeight).replace("\n", "");
-			String truthW = String.format("%.5g%n", truthWeight).replace("\n", "");; 
-			if (truthWeight == -1) {
-				truthW = "-";
-			}
-			int var1 = suspect*numberLocations+player;
-			int var2 = place*numberLocations+player;
-			int var3 = weapon*numberLocations+player;
-			stringBuilder += this.createTuplesHeader(defaultW, 3, 1, var1, var2, var3);
-			stringBuilder += "0 0 0 " + truthW + "\n";
-
-			
-			if (playerTrust != 1) {
-				this.globalMax += Math.max(defaultWeight, truthWeight);
-			}
-			//END NEW
+		for (int i = 0; i < suggestions.size(); i++) {
+			int player = suggestions.get(i).get(0);
+			int suspect = suggestions.get(i).get(1);
+			int place = suggestions.get(i).get(2);
+			int weapon = suggestions.get(i).get(3);
+			stringBuilder += "3 " + (suspect*numberLocations+player) + " "
+					+ (place*numberLocations+player) + " " + (weapon*numberLocations+player)
+					+ " " + "0 1\n";
+			stringBuilder += "0 0 0 -\n";
 			constraintCounter++;
 		}
 		
 		return stringBuilder;
 	}
 	
-	/*
-	 * Private helper functions
-	 */
-	
-	private String createTuplesHeader(String defaultValue, int numberVars, int deviatingTuples, int... vars) {
+	private String createTuplesHeader(int numberVars, String defaultValue, int deviatingTuples, int... vars) {
 	    String stringBuilder = "" + numberVars + " " + vars[0];
 		for (int i = 1; i < vars.length; i++) {
 	        stringBuilder += " " + vars[i];
@@ -244,6 +255,12 @@ public class ClueFileWriter {
 		return stringBuilder;
 	}
 	
+	/**
+	 * Converts probability into weights for constraints by taking the the -log.
+	 * Higher probabilities lead to lower weights.
+	 * @param prob
+	 * @return
+	 */
 	private double probToWeight(double prob) {
 		if (prob == 0) {
 			return -1;
@@ -253,22 +270,6 @@ public class ClueFileWriter {
 		}
 		double weight = Math.log(prob) * -1;
 		return weight;
-	}
-	
-	public static void main(String[] args) {
-//		ClueSolver test = new ClueSolver(2, 2, 3, 4);
-//		test.startGame();
-//		test.accuse(0, 3, 7);
-//		//filler accuse to return to our turn
-//		test.accuse(1, 2, 5);
-//		test.accuse(1, 2, 5);
-//		for (int i = 0; i < test.solution.size(); i++) {
-//			System.out.println(test.solution.get(i));
-//		}
-//		test.printGameState();
-//		ClueFileWriter test2 = new ClueFileWriter(test);
-//		System.out.println(test2.getInputString());
-//		System.out.println(test2.globalMax);
 	}
 	
 }

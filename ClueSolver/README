@@ -1,0 +1,41 @@
+This ClueSolver class is intended to act as a use-case example for WCSPLift, a program that relates to the Constraint 
+Composite Graph for the weighted constraint satisfaction problem. Specifically, this program simulates the board game
+Clue from the perspective of the user against bots. As turns go by, the game tracks all deducible knowledge about the
+game state gained so far from the perspective of the user. At any time, this game state data can be written to an
+input file formatted for WCSPLift using the ClueFileWriter class, which will then solve the most likely solution to the
+game (location of each card). This can also be combined with the Top K Solutions Generator script to instead output the top K most
+likely solutions, allowing the user to play smarter. By eliminating less likely possible solutions without revealing the most likely
+solution, a player can outwit opponents to win the game of Clue. To run the code, please see the ClueSolverGUI GitHub (detailed below).
+
+WCSPLift: https://gitlab.com/xuphys/wcsp-solver
+Top K Solutions Generator: https://gitlab.com/kianasun/top-k-wcsp-solutions
+ClueSolverGUI: https://github.com/milangoyal/ClueSolverGUI
+
+The ClueSolver follows similar rules to the actual board game. The default game uses 21 cards of three types: Suspects, Places,
+and Weapons. One of each type is placed in the case file and the rest are distributed among the players as evenly as possible.
+Players take turns "suggesting" the contents of the case file, and each suggestion is passed around to the other players. If a
+player holds a card contradicting the suggestion, they must reveal that card to the player who made the suggestion, thereby ending
+that suggestion. If a suggestion goes through all players without any contradicting it, that means it must be the contents of the
+case file (unless the player who made the suggestions holds one of the suggested cards). Before the user ends their turn, they may
+make an "accusation" declaring the contents of the case file. If they are correct they win the game, otherwise they lose.
+
+Information related to WCSPLift input file:
+Each binary variable represents a card and its location.
+0: card 1 is in location 1
+1: card 1 is in location 2
+...
+n: card x is in location y
+The default game has 21 cards (6 suspects, 9 places, 6 weapons). Each player's hand is a possible location as well as each of
+the three slots in the case file. The probability of each variable being true is calculated using the game state data and added
+as constraints.
+
+
+These other following logical constraints are also added to the variables:
+1) A card cannot be in multiple locations
+2) A card must be in at least one location
+3) Each case file slot can only have the appropriate type of card (suspect, weapon, or place)
+
+
+
+
+

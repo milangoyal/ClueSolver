@@ -1,64 +1,73 @@
 package clue;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Simulator for the board game Clue played from the perspective of Player 1 against
+ * bots. Can be played with original 21 cards or a customer number of cards/opponents.
+ * Game data about opponents hands (deduced through bot responses) is stored from the perspective 
+ * of player 1 which is used by {@link ClueFileWriter} to generate a WCSP Lyft input file to
+ * deduce possible game solutions. 
+ * @author Milan
+ *
+ */
 public class ClueSolver {
+	
+	/**
+	 * Original 21 Clue card names for a default game. Used in printing game messages.
+	 */
+	public static final String[] cardNames = {"Miss Scarlet", "Professor Plum", "Mrs. Peacock", "Mr. Green",
+			"Colonel Mustard", "Mrs. White", "Kitchen", "Ballroom", "Conservatory", "Billiard Room",
+			"Library", "Study", "Hall", "Lounge", "Dining Room", "Candlestick", "Knife", "Lead Pipe",
+			"Revolver", "Rope", "Monkey Wrench"};
+	
 	private int numberPlayers;
 	private int numberSuspects;
 	private int numberPlaces;
 	private int numberWeapons;
 	
 	/**
-	 * A default game uses the original 21 Clue cards
+	 * A default game uses the original 21 Clue cards. Game messages will use {@link #cardNames}.
 	 */
 	private boolean defaultGame;
 	
-	public static final String[] cardNames = {"Miss Scarlet", "Professor Plum", "Mrs. Peacock", "Mr. Green",
-			"Colonel Mustard", "Mrs. White", "Kitchen", "Ballroom", "Conservatory", "Billiard Room",
-			"Library", "Study", "Hall", "Lounge", "Dining Room", "Candlestick", "Knife", "Lead Pipe",
-			"Revolver", "Rope", "Monkey Wrench"};
 	
 	/**
-	 * Holds the trustworthiness for players 0 to n-1. Must be in the range of (0,1]. A value of 1
-	 * implies they never lie (cheat) when responding to accusations. Value cannot be 0, as a player cannot
-	 * always lie without getting caught.
+	 * True if game is over (Player 1 (you) has won or lost...game is irrelevant after)
 	 */
-	private List<Double> trust;
-	
-	public List<Double> getTrust() {
-		return trust;
-	}
+	private boolean gameOver;
 
 
 	/**
 	 * Holds all cards each player is assigned as well as those in the case file. Solution for proper function of AI opponents.
-	 * Should only be accessed by user for verification of WCSP solver results. 
+	 * Should only be accessed by user for verification of WCSP solver results. Index 0 refers to player 1 with the last
+	 * index referring to the content of the weapons case file slot.
 	 */
-	public List<HashSet<Integer>> solution;
-	
-	public List<HashSet<Integer>> getSolution() {
-		return solution;
-	}
+	private List<HashSet<Integer>> solution;
 
 
 	/**
-	 * Returns whose turn it is currently to make an accusation
+	 * Returns whose turn it is currently to make an accusation.
 	 */
 	private int currentTurn;
 	
 	/**
-	 * For each set {Suspects, Places, Weapons} holds the cards for which location is still unknown
+	 * Only relevant to Player 1. Set to true if player 1 has already made a suggestion and it is still their turn.
+	 * An accusation can be made after a suggestion or the turn can be ended after the suggestion.
+	 */
+	private boolean suggestionMade;
+	
+	/**
+	 * For each set {Suspects, Places, Weapons} holds the cards for which location is still unknown.
 	 */
 	private List<HashSet<Integer>> unknowns;
 	
 	/**
-	 * For each player, holds a set of the cards they are known to hold
+	 * For each player, holds a set of the cards they are known to hold.
 	 */
 	private List<HashSet<Integer>> hands;
 	
@@ -74,28 +83,83 @@ public class ClueSolver {
 	private List<HashSet<Integer>> restrictions;
 	
 	/**
-	 * Keeps track of when players admit to an accusation in the format {Suspect, Place, Weapon},
+	 * Keeps track of when players admit to a suggestion in the format {Suspect, Place, Weapon},
 	 * so that the constraint that the player must hold at least one of these three cards
 	 * can be added to the WCSP solver. Each entry is a list of ints formatted as such: {player, 
 	 * suspect, place, weapon}
 	 */
-	private List<List<Integer>> accusationConstraints;
+	private List<List<Integer>> suggestionConstraints;
 	
-	public List<List<Integer>> getAccusationConstraints() {
-		return accusationConstraints;
-	}
+
 	
+	/**
+	 * A string that holds a growing explanation of what moves are occurring each turn.
+	 */
 	private String gameMessages;
 	
-	public String getGameMessages() {
-		return gameMessages;
-	}
+
 	
 	/*
-	 * ---------------
+	 * --------------------------------------------------------------------------
 	 * Public API
-	 * ---------------
+	 * --------------------------------------------------------------------------
 	 */
+	
+	/**
+	 * @return Number of players.
+	 */
+	public int getNumberPlayers() {
+		return numberPlayers;
+	}
+	
+	/**
+	 * @return Number of suspect cards.
+	 */
+	public int getNumberSuspects() {
+		return numberSuspects;
+	}
+
+	/**
+	 * @return Number of place cards.
+	 */
+	public int getNumberPlaces() {
+		return numberPlaces;
+	}
+
+	/**
+	 * @return Number of weapon cards.
+	 */
+	public int getNumberWeapons() {
+		return numberWeapons;
+	}
+	
+	/**
+	 * @return Unmodifiable copy of {@link #hands}.
+	 */
+	public List<HashSet<Integer>> getHands() {
+		return Collections.unmodifiableList(hands);
+	}
+	
+	/**
+	 * @return Unmodifiable copy of {@link ClueSolver#solution}. 
+	 */
+	public List<HashSet<Integer>> getSolution() {
+		return Collections.unmodifiableList(solution);
+	}
+	
+	/**
+	 * @return Unmodifiable copy of {@link ClueSolver#suggestionConstraints}. 
+	 */
+	public List<List<Integer>> getSuggestionConstraints() {
+		return Collections.unmodifiableList(suggestionConstraints);
+	}
+	
+	/**
+	 * @return Public getter for {@link #gameMessages}
+	 */
+	public String getGameMessages() {
+		return this.gameMessages;
+	}
 
 	/**
 	 * Given card number returns whether it is {Suspect = 0, Place = 1, or Weapon = 2} card.
@@ -122,7 +186,7 @@ public class ClueSolver {
 	 * @param card integer between 0 and (numberSuspects + numberPlaces + numberWeapons-1)
 	 * @param cardType integer between 0-2 {Suspects, Places, Weapons}
 	 * @param location integer between 0-(numberPlayers+2) {Player1, ..., PlayerN, Suspect Case File, Places Case File, Weapons Case File)
-	 * @return numerical probability given card is in given location depending on game state information from Player 0's perspective
+	 * @return numerical probability given card is in given location depending on game state information from Player 1's perspective
 	 */
 	public double getProbability(int card, int cardType, int location) {
 		//Card cannot be in this location
@@ -179,14 +243,14 @@ public class ClueSolver {
 		this.numberPlaces = numberPlaces;
 		this.numberWeapons = numberWeapons;
 		this.defaultGame = false;
+		this.gameOver = false;
 		
 		this.solution = new ArrayList<HashSet<Integer>>();
 		this.unknowns = new ArrayList<HashSet<Integer>>();
 		this.hands = new ArrayList<HashSet<Integer>>();
 		this.freeSlots = new ArrayList<Integer>();
 		this.restrictions = new ArrayList<HashSet<Integer>>();
-		this.accusationConstraints = new ArrayList<List<Integer>>();
-		this.trust = new ArrayList<Double>();
+		this.suggestionConstraints = new ArrayList<List<Integer>>();
 		this.gameMessages = "";
 		
 		//One for each category {Suspects, Places, Weapons}
@@ -231,8 +295,6 @@ public class ClueSolver {
 				freeSlots.add(cardsPerPlayer);
 			}
 			
-			//All players have default trust of 1.0 (implies no cheating)
-			trust.add(1.0);
 		}
 		
 		
@@ -277,12 +339,11 @@ public class ClueSolver {
 			deck.remove(randomCard);
 			
 			currentPlayer++;	
-		}
-		
+		}	
 	}
 	
 	/**
-	 * Starts the game by revealing Player 0's hand and giving them the first turn
+	 * Starts the game by revealing Player 1's hand and giving them the first turn
 	 */
 	public void startGame() {
 		for (int i = 0; i < solution.get(0).size(); i++) {
@@ -303,97 +364,81 @@ public class ClueSolver {
 		}
 		
 		currentTurn = 0;
-	}
-	
-	public void printGameState() {
-		for (int i = 0; i < numberPlayers; i++) {
-			String player = "Player " + i + "'s Hand: ";
-			System.out.print(player);
-			System.out.println(hands.get(i) + " Free Slots: " + freeSlots.get(i));
-			System.out.println("Restrictions: " + restrictions.get(i));
-			System.out.println("");
-		}
-	}
-	
-	public void printSolution() {
-		for (int i = 0; i < numberPlayers; i++) {
-			System.out.print("Player " + i + "'s Hand: ");
-			System.out.println(solution.get(i));
-		}
-		for (int i = numberPlayers; i < solution.size(); i++) {
-			if (i == numberPlayers) {
-				System.out.print("Suspect Case File Slot: ");
-			}
-			else if (i == (numberPlayers+1)) {
-				System.out.print("Place Case File Slot: ");
-			}
-			else if (i == (numberPlayers+2)) {
-				System.out.print("Weapon Case File Slot: ");
-			}
-			System.out.println(solution.get(i));
-		}
-	}
-	
-	public String simulateTurns(int numberTurns) {
-		String message = "";
-		Random rand = new Random();
-		for (int i = 0; i < numberTurns; i++) {
-			int randomSuspect = rand.nextInt(numberSuspects);
-			int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
-			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
-			message += suggest(randomSuspect, randomPlace, randomWeapon);
-		}
-		gameMessages += message;
-		return message;
+		suggestionMade = false;
 	}
 	
 	public String simulateOpenentTurns() {
 		String message = "";
-		Random rand = new Random();
-		while(currentTurn != 0) {
-			int randomSuspect = rand.nextInt(numberSuspects);
-			int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
-			int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
-			message += suggest(randomSuspect, randomPlace, randomWeapon);
+		if (gameOver) {
+			message = "The game is already over\n";
+		}
+		else {
+			Random rand = new Random();
+			while(currentTurn != 0 && !this.gameOver) {
+				int randomSuspect = rand.nextInt(numberSuspects);
+				int randomPlace = numberSuspects + rand.nextInt(numberPlaces);
+				int randomWeapon = numberSuspects + numberPlaces + rand.nextInt(numberWeapons);
+				message += suggest(randomSuspect, randomPlace, randomWeapon);
+			}
 		}
 		gameMessages += message;
 		return message;
 	}
 	
-	public String enterPlayerTurn(int suspect, int place, int weapon) {
-		if (currentTurn != 0) {
-			return "Not Player 0's (your) turn!";
-		}
-		
-		if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
-			return "Please enter a proper suspect, place, and weapon card";
-		}
-		
+	public String enterPlayer1Turn(int suspect, int place, int weapon) {
 		String message = "";
-		message += suggest(suspect, place, weapon);
+		if (gameOver) {
+			message = "The game is already over\n";
+		}
+		else if (currentTurn != 0) {
+			message = "Not Player 1's (your) turn!\n";
+		}
+		else if (suggestionMade) {
+			message = "Player 1 (you) already made a suggestion this turn. You may make an accusation or end your turn\n";
+		}
+		else if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
+			message = "Please enter a proper suspect, place, and weapon card\n";
+		}
+		else {
+			message += suggest(suspect, place, weapon);
+		}
 		gameMessages += message;
 		return message;
+	}
+	
+	public void endPlayer1Turn() {
+		if (currentTurn == 0) {
+			currentTurn++;
+			suggestionMade = false;
+		}
 	}
 	
 	public String accuse(int suspect, int place, int weapon) {
-		if (currentTurn != 0) {
-			return "Not Player 0's (your) turn!";
-		}
-		
-		if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
-			return "Please enter a proper suspect, place, and weapon card";
-		}
-		
+		String message = "";
 		HashSet<Integer> weapon_soln = solution.get(solution.size()-1);
 		HashSet<Integer> place_soln = solution.get(solution.size()-2);
 		HashSet<Integer> suspect_soln = solution.get(solution.size()-3);
 		
-		if (suspect_soln.contains(suspect) && place_soln.contains(place) && weapon_soln.contains(weapon)) {
-			return "You correctly guessed the case file and WIN THE GAME!";
+		if (gameOver) {
+			message = "The game is already over\n";
+		}
+		else if (currentTurn != 0) {
+			message = "Not Player 1's (your) turn!\n";
+		}
+		
+		else if (getCardType(suspect) != 0 || getCardType(place) != 1 || getCardType(weapon) != 2) {
+			message = "Please enter a proper suspect, place, and weapon card\n";
+		}
+		else if (suspect_soln.contains(suspect) && place_soln.contains(place) && weapon_soln.contains(weapon)) {
+			this.gameOver = true;
+			message = "You correctly guessed the case file and WIN THE GAME!\n";
 		}
 		else {
-			return "You guessed the case file wrong and LOSE THE GAME";
+			this.gameOver = true;
+			message = "You guessed the case file wrong and LOSE THE GAME\n";
 		}
+		this.gameMessages += message;
+		return message;
 	}
 	
 	/*
@@ -402,8 +447,31 @@ public class ClueSolver {
 	 * ----------------------
 	 */
 	
+	/**
+	 * Current player makes a suggestion of case file contents, which is then passed around to other players until someone
+	 * can refute the claim or it makes it all the way back to the suggester implying the case file contents
+	 * have been correctly guessed.
+	 * @param suspect
+	 * @param place
+	 * @param weapon
+	 * @return
+	 */
 	private String suggest(Integer suspect, Integer place, Integer weapon) {
 		String message = "";
+		if (gameOver) {
+			message = "The game is already over\n";
+			this.gameMessages += message;
+			return message;
+		}
+		
+		if (currentTurn == 0) {
+			if (suggestionMade) {
+				message = "You have already made a suggestion this turn. Please make an accusation or end your turn\n";
+				this.gameMessages += message;
+				return message;
+			}
+		}
+		
 		if (defaultGame) {
 			if (currentTurn == 0) {
 				message += "You accuse suspect: " + cardNames[suspect] + " of using weapon: " +
@@ -449,14 +517,36 @@ public class ClueSolver {
 				accusedPlayer = 0;
 			}
 		}
-		//End of a suggestion is end of that player's turn
-		currentTurn++;
-		if (currentTurn == numberPlayers) {
-			currentTurn = 0;
+		
+		if (currentTurn != 0 && solution.get(solution.size()-3).contains(suspect) && solution.get(solution.size()-2).contains(place) 
+				&& solution.get(solution.size()-1).contains(weapon)) {
+			message += "Player " + (currentTurn+1) + " correctly guessed the contents of the case file and wins the game!\n";
+			this.gameOver = true;
+		}
+		
+		//Player 1 may still make an accusation before ending their turn
+		if (currentTurn == 0) {
+			suggestionMade = true;
+		}
+		//End of a suggestion is end of other players' (AI) turns
+		else {
+			currentTurn++;
+			if (currentTurn == numberPlayers) {
+				currentTurn = 0;
+			}
 		}
 		return message;
 	}
 	
+	/**
+	 * Passes on a suggest, meaning the player does not hold any of three cards form the suggestion and
+	 * therefore cannot refute the claim.
+	 * @param player
+	 * @param suspect
+	 * @param place
+	 * @param weapon
+	 * @return
+	 */
 	private String passOnSuggest(int player, Integer suspect, Integer place, Integer weapon) {
 		HashSet<Integer> playerRestrictions = restrictions.get(player);
 		if (!playerRestrictions.contains(suspect)) {
@@ -517,14 +607,22 @@ public class ClueSolver {
 		else return -1;
 	}
 	
+	/**
+	 * Player who has received a suggestion refutes the claim by revealing to suggester that they hold one of the cards in the
+	 * suggestion.
+	 * @param playerAccuser
+	 * @param playerAccused
+	 * @param suspect
+	 * @param place
+	 * @param weapon
+	 * @return
+	 */
 	private String admitOnSuggest(int playerAccuser, int playerAccused, Integer suspect, Integer place, Integer weapon) {
 		if (currentTurn == 0) {
 			Integer admittedCard = suggestResponse(playerAccused, suspect, place, weapon);
 			if (!hands.get(playerAccused).contains(admittedCard)) {
 				hands.get(playerAccused).add(admittedCard);
-				//TODO:verify
 				unknowns.get(getCardType(admittedCard)).remove(admittedCard);
-				//TODO: verify this works
 				Integer remainingFree = freeSlots.get(playerAccused) - 1;
 				freeSlots.remove(playerAccused);
 				freeSlots.add(playerAccused, remainingFree);
@@ -545,9 +643,6 @@ public class ClueSolver {
 				message ="Player " + (playerAccused+1) + " reveals to you they are holding card " + admittedCard + "\n";
 			}
 			return message;
-//			if (annotate) {
-//				System.out.println("Player " + playerAccused + " reveals to you they are holding card " + admittedCard);
-//			}
 		}
 		else {
 			List<Integer> constraint = new ArrayList<Integer>();
@@ -555,8 +650,8 @@ public class ClueSolver {
 			constraint.add(suspect);
 			constraint.add(place);
 			constraint.add(weapon);
-			if (!this.accusationConstraints.contains(constraint)) {
-				accusationConstraints.add(constraint);
+			if (!this.suggestionConstraints.contains(constraint)) {
+				suggestionConstraints.add(constraint);
 			}
 			String message = "";
 			if (playerAccused == 0) {
@@ -566,126 +661,7 @@ public class ClueSolver {
 				message += "Player " + (playerAccused+1) + " reveals they are holding one of the three cards to player " + (playerAccuser+1) + "\n";
 			}
 			return message;
-//			if (annotate) {
-//				System.out.println("Player " + playerAccused + " reveals they are holding one of the three cards to player " + playerAccuser);
-//			}
 		}
-	}
-	
-
-	
-
-	
-
-	
-	public void printMenu() {
-		List<String> options = new ArrayList<String>();
-		options.add("1: Simulate turns");
-		options.add("2: Print Current Game State");
-		options.add("3: Print Game Solution");
-		options.add("4: Turn on annotations: prints what is happening each turn to the console");
-		options.add("5: Turn off annotations: deafult setting");
-		options.add("6: Write current game state to file. This file can be fed to the wcsp solver");
-		options.add("7: End program");
-		
-		for (int i = 0; i < options.size(); i++) {
-			System.out.println(options.get(i));
-		}
-	}
-	
-	public static void main(String[] args) {
-		System.out.println("Welcome to the WCSP Clue Game Simulator!\n ");
-		UserInputManager input = new UserInputManager();
-		int players = input.getNumberPlayers();
-		int suspects = input.getNumberSuspects();
-		int places = input.getNumberPlaces();
-		int weapons = input.getNumberWeapons();
-		ClueSolver game = new ClueSolver(players, suspects, places, weapons);
-		game.startGame();
-		System.out.println("What would you like to do? Enter the corresponding number");
-		game.printMenu();
-		while (true) {
-			int selection = input.getIntWithinRange(0, 8);
-			if (selection == 0) {
-				game.printMenu();
-			}
-			else if (selection == 1) {
-				System.out.println("How many player turns would you like simulate? Enter a number between 1 and 1000");
-				int turns = input.getIntWithinRange(1, 1000);
-				System.out.println(game.simulateTurns(turns));
-			}
-			else if (selection == 2) {
-				game.printGameState();
-			}
-			else if (selection == 3) {
-				game.printSolution();
-			}
-			else if (selection == 4) {
-				//game.setAnnotate(true);
-			}
-			else if (selection == 5) {
-				//game.setAnnotate(false);
-			}
-			else if (selection == 6) {
-				ClueFileWriter clueWriter = new ClueFileWriter(game);
-				String content = clueWriter.getInputString();
-			    BufferedWriter writer;
-				try {
-					writer = new BufferedWriter(new FileWriter("ClueSolverInput", false));
-					writer.write(content);
-					writer.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				System.out.println("Data successfully written to file named ClueSolverInput");
-			}
-			else if (selection == 7) {
-				input.closeScanner();
-				System.out.println("Thanks for playing!");
-				break;
-			}
-		
-			System.out.println("Please enter another command or enter 0 to print the menu of commands:");
-		}
-		
-		
-//		ClueSolver test = new ClueSolver(2, 2, 3, 4);
-//		test.startGame();
-//		test.accuse(0, 3, 7);
-//		//filler accuse to return to our turn
-//		test.accuse(1, 2, 5);
-//		test.accuse(1, 2, 5);
-//		for (int i = 0; i < test.solution.size(); i++) {
-//			System.out.println(test.solution.get(i));
-//		}
-//		test.printGameState();
-//		ClueFileWriter test2 = new ClueFileWriter(test);
-//		System.out.println(test2.initializeVariables());	
-		
-
-	}
-
-
-	public int getNumberPlayers() {
-		return numberPlayers;
-	}
-
-	public int getNumberSuspects() {
-		return numberSuspects;
-	}
-
-
-	public int getNumberPlaces() {
-		return numberPlaces;
-	}
-
-
-	public int getNumberWeapons() {
-		return numberWeapons;
-	}
-	
-	public List<HashSet<Integer>> getHands() {
-		return hands;
 	}
 
 }
