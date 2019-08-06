@@ -220,15 +220,16 @@ public class ClueFileWriter {
 		
 		return stringBuilder;
 	}
-	
-	private String createTuplesHeader(int numberVars, String defaultValue, int deviatingTuples, int... vars) {
-	    String stringBuilder = "" + numberVars + " " + vars[0];
-		for (int i = 1; i < vars.length; i++) {
-	        stringBuilder += " " + vars[i];
-	    }
-		stringBuilder += " " + defaultValue + " " + deviatingTuples + "\n";
-		return stringBuilder;
-	}
+
+// This section of code currently unused
+//	private String createTuplesHeader(int numberVars, String defaultValue, int deviatingTuples, int... vars) {
+//	    String stringBuilder = "" + numberVars + " " + vars[0];
+//		for (int i = 1; i < vars.length; i++) {
+//	        stringBuilder += " " + vars[i];
+//	    }
+//		stringBuilder += " " + defaultValue + " " + deviatingTuples + "\n";
+//		return stringBuilder;
+//	}
 	
 	/**
 	 * Creates a matrix of tuples to signify mutual exclusion.
